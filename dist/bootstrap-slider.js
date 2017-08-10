@@ -1,5 +1,5 @@
 /*! =======================================================
-                      VERSION  9.8.1              
+                      VERSION  9.8.1-akako2
 ========================================================= */
 "use strict";
 
@@ -351,6 +351,9 @@ var windowIsDefined = (typeof window === "undefined" ? "undefined" : _typeof(win
 			this.ticksCallbackMap = {};
 			this.handleCallbackMap = {};
 
+			// Previous touch move time
+			this.prevMoveTime = 0;
+
 			if (typeof element === "string") {
 				this.element = document.querySelector(element);
 			} else if (element instanceof HTMLElement) {
@@ -467,7 +470,7 @@ var windowIsDefined = (typeof window === "undefined" ? "undefined" : _typeof(win
 				if (Array.isArray(rangeHighlightsOpts) && rangeHighlightsOpts.length > 0) {
 					for (var j = 0; j < rangeHighlightsOpts.length; j++) {
 						var rangeHighlightElement = document.createElement("div");
-						var customClassString = rangeHighlightsOpts[j].class || "";
+						var customClassString = rangeHighlightsOpts[j]['class'] || "";
 						rangeHighlightElement.className = "slider-rangeHighlight slider-selection " + customClassString;
 						this.rangeHighlightElements.push(rangeHighlightElement);
 						sliderTrack.appendChild(rangeHighlightElement);
@@ -1486,6 +1489,7 @@ var windowIsDefined = (typeof window === "undefined" ? "undefined" : _typeof(win
 				}
 
 				var touch = ev.changedTouches[0];
+				this.touchIdentifier = touch.identifier;
 				this.touchX = touch.pageX;
 				this.touchY = touch.pageY;
 			},
@@ -1567,6 +1571,12 @@ var windowIsDefined = (typeof window === "undefined" ? "undefined" : _typeof(win
 					return false;
 				}
 
+				var nowTime = new Date().getTime();
+				if (nowTime - this.prevMoveTime < 33) {
+					return false;
+				}
+				this.prevMoveTime = nowTime;
+
 				var percentage = this._getPercentage(ev);
 				this._adjustPercentageForRangeSliders(percentage);
 				this._state.percentage[this._state.dragged] = percentage;
@@ -1582,7 +1592,16 @@ var windowIsDefined = (typeof window === "undefined" ? "undefined" : _typeof(win
 					return;
 				}
 
-				var touch = ev.changedTouches[0];
+				var touch = undefined;
+				for (var i = 0; i < ev.changedTouches.length; i++) {
+					var t = ev.changedTouches[i];
+					if (t.identifier === this.touchIdentifier) {
+						touch = t;
+					}
+				}
+				if (undefined === touch) {
+					return;
+				}
 
 				var xDiff = touch.pageX - this.touchX;
 				var yDiff = touch.pageY - this.touchY;
@@ -1699,7 +1718,20 @@ var windowIsDefined = (typeof window === "undefined" ? "undefined" : _typeof(win
    */
 			_getPercentage: function _getPercentage(ev) {
 				if (this.touchCapable && (ev.type === 'touchstart' || ev.type === 'touchmove')) {
-					ev = ev.touches[0];
+					switch (ev.type) {
+						case 'touchstart':
+							ev = ev.touches[0];
+							break;
+						case 'touchmove':
+							for (var i = 0; i < ev.touches.length; i++) {
+								var t = ev.touches[i];
+								if (t.identifier === this.touchIdentifier) {
+									ev = t;
+									break;
+								}
+							}
+							break;
+					}
 				}
 
 				var eventPosition = ev[this.mousePos];
